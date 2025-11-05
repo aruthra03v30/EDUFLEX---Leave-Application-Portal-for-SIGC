@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leave Application - SIG College</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root { --brand: #1976d2; --brand-dark: #1565c0; }
+    body {
+      margin: 0; font-family: "Times New Roman", serif;
+      background: #e8f4ff; min-height: 100vh;
+    }
+    header {
+      background: var(--brand); color: white;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px; position: sticky; top: 0; z-index: 30;
+    }
+    header h1 { font-size: 18px; margin: 0; }
+    #logoutBtn {
+      background: #ef5350; color: white; border: none;
+      padding: 8px 12px; border-radius: 6px; cursor: pointer;
+    }
+    .layout { display: flex; gap: 20px; padding: 20px; }
+    nav#sidebar {
+      width: 180px; background: #003366; color: white;
+      border-radius: 8px; padding: 15px; display: none;
+      flex-direction: column; gap: 8px;
+      min-height: calc(100vh - 80px);
+    }
+    nav#sidebar a {
+      color: white; text-decoration: none; padding: 8px;
+      border-radius: 6px; display: block;
+    }
+    nav#sidebar a.active, nav#sidebar a:hover { background: #0055aa; }
+    main { flex: 1; min-height: calc(100vh - 80px); padding: 10px; }
+    section.panel {
+      background: white; border-radius: 8px; padding: 30px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+      margin-bottom: 16px;
+    }
+    .hidden { display: none; }
+    form label { display: block; font-weight: bold; margin-top: 10px; }
+    form input, form textarea, form select {
+      width: 100%; padding: 8px; margin-top: 6px;
+      border-radius: 6px; border: 1px solid #ccc;
+      font-family: inherit; font-size: 14px;
+    }
+    form button, .btn {
+      background: var(--brand); color: white; border: none;
+      padding: 8px 12px; border-radius: 6px; cursor: pointer; margin-top: 20px;
+    }
+    .btn.secondary { background: #666; }
+    .btn.danger { background: #e53935; }
+    .btn.small { padding: 4px 8px; font-size: 12px; margin: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td {
+      padding: 8px; border: 1px solid #ddd; text-align: left; font-size: 14px;
+    }
+    th { background: var(--brand); color: white; }
+    .status-approved { color: #2e7d32; font-weight: bold; }
+    .status-rejected { color: #c62828; font-weight: bold; }
+    #notifList {
+      border: 1px solid #ccc; padding: 10px; height: 300px;
+      overflow-y: auto; background: #f9f9f9;
+    }
+    #notifList p {
+      background: #fff; padding: 6px 10px; border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin: 4px 0;
+    }
+    #chatInputArea { display: flex; margin-top: 10px; gap: 10px; }
+    #chatMsg { flex: 1; padding: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Shrimati Indira Gandhi College — Leave Portal</h1>
+    <button id="logoutBtn" class="hidden">Logout</button>
+  </header>
+
+  <div class="layout">
+    <nav id="sidebar">
+      <a href="#" id="navHome" class="active">Home</a>
+      <a href="#" id="navNew">Apply Leave</a>
+      <a href="#" id="navView">View Data</a>
+      <a href="#" id="navNot">Notifications</a>
+    </nav>
+
+    <main>
+      <!-- LOGIN -->
+      <div id="loginArea">
+        <div id="loginBox" class="panel">
+          <h2>Login</h2>
+          <form id="loginForm">
+            <label>Username</label>
+            <input id="loginUsername" type="text" required />
+            <label>Password</label>
+            <input id="loginPassword" type="password" required />
+            <button type="submit" class="btn">Login</button>
+            <p id="loginError" style="color:#c62828; display:none; text-align:center;">Invalid credentials</p>
+          </form>
+        </div>
+      </div>
+
+      <!-- HOME -->
+      <section id="homePanel" class="panel hidden">
+        <h2>
+          <img src="https://www.sigc.edu/img/SIGC_Logo-final.jpg" height="200px" width="950px"><br><br>Welcome
+        </h2>
+        <p style="font-size:20px;">Use the sidebar to navigate. Students can apply for leave. Tutors & HOD can review and approve.</p>
+      </section>
+
+      <!-- APPLY LEAVE -->
+      <section id="newPanel" class="panel hidden">
+        <h2>Leave Application</h2>
+        <form id="leaveForm">
+          <label>Register Number</label>
+          <input id="rollno" required placeholder="eg: MCA202501"/>
+          <label>Name</label>
+          <input id="studentName" readonly required />
+          <label>Course</label>
+          <input id="course" value="MCA" required />
+          <label>Section</label>
+          <input id="section" required />
+          <label>Start Date</label>
+          <input type="date" id="startdate" required />
+          <label>End Date</label>
+          <input type="date" id="enddate" required />
+          <label>Days</label>
+          <input type="number" id="days" min="1" max="10" required />
+          <label>Reason</label>
+          <textarea id="reason" rows="3" required></textarea>
+          <label>Email</label>
+          <input id="email" type="email" required />
+          <label>Contact</label>
+          <input id="contact" />
+          <label>Certificate Link (Google Drive)</label>
+          <input type="text" id="certificateUrl" placeholder="Paste your Google Drive link here" >
+
+          <button type="submit" id="submitLeaveBtn" class="btn">Submit</button>
+        </form>
+      </section>
+
+      <!-- VIEW DATA -->
+      <section id="viewPanel" class="panel hidden">
+        <h2>View Leave Applications</h2>
+        <input type="text" id="searchInput" placeholder="Search by Register Number or Name..." style="width:100%; padding:8px; margin-bottom:10px; border-radius:6px; border:1px solid #ccc;"/>
+        <div id="tableWrap"></div>
+      </section>
+
+      <!-- NOTIFICATIONS -->
+      <section id="notifPanel" class="panel hidden">
+        <h2>Notifications</h2>
+        <div id="notifList">No messages</div>
+        <div id="chatInputArea">
+          <input id="chatMsg" placeholder="Type message..." />
+          <button id="sendMsgBtn" class="btn">Send</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<!-- ✅ Add this before your script code -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  // Initialize EmailJS with your public key
+  (function() {
+    emailjs.init({
+      publicKey: "Xbg4gZ0lA-Q1BEmV9"
+    });
+  })();
+</script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAkwpu4oQJUdAzcYA2yj8ZJDEpZ3NtwdD8",
+      authDomain: "student-leave-form.firebaseapp.com",
+      databaseURL: "https://student-leave-form-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "student-leave-form",
+      storageBucket: "student-leave-form.appspot.com",
+      messagingSenderId: "167694105277",
+      appId: "1:167694105277:web:e357918889a1d3dc8315d4"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const STUDENTS = {
+      "MCA202512": "Aruthra V S" ,"MCA202501": "Nishanthika S",
+" MCA202545":"Aarthi R", "MCA202517":"Aarthi J", "MCA202519":"Arthi T", "MCA202513":"Abinaya P", "MCA202550":"Abinaya R", "MCA202537":"Abirami A", "MCA202527":"Agalya V", "MCA202520":"Aishwarya S", "MCA202549":"Allwina Praisy S", "MCA202524":"Anudurga A", "MCA202528":"Ashnath E", "MCA202525":"Biruntha G",
+"MCA202546":"BowyaSri A",
+"MCA202514":"Cini Priya K", "MCA202533":"Deepika S",
+"MCA 202526":"Dhanusi B", "MCA202522":"Elanthendral B", "MCA202541":"Eswari M", "MCA202544":"Gayathri A",  "MCA202509":"Harini R",
+ "MCA202529":"Harshini A",
+"MCA202511":"Iniyal K",
+"MCA202506":"Jegasri S",
+"MCA202521":"Jothi Selvi K", "MCA202539":"Kasthuri P",
+"MCA202507":"Kavi priya J",
+"MCA202518":"Mahalakshmi S",
+"MCA202530":"Manju bharathi S",
+"MCA202538":"Nandhini B",
+"MCA202532":"Naveenapriya E",
+"MCA 202548":"Nikhitha N",
+"MCA202542":"Nithya Sri S",
+"MCA202503":"Parkavi P",
+"MCA202543":"pradeepa S",
+"MCA202515":"Preethy V",
+"MCA202535":"Premi Sri Luxmi G",
+"MCA202508":"Priyadharshini M",
+"MCA202536":"Priyadharshini P",
+"MCA 202516":"Santhiya S",
+"MCA202504":"Shopiya V",
+"MCA202531":"Sobiya R",
+"MCA202547":"Sowmini S",
+"MCA202540":"Subhalatchumi S",
+"MCA202502":"Swetha Kayal S",
+"MCA202534":"Thirumika K",
+"MCA202510":"Vaishali A",
+"MCA202505":"Vaishnavi C",
+"MCA202523":"Yogalakshmi K"
+    };
+
+    // NOTE: SMS is disabled in this version to avoid CORS issues.
+    // If you want to enable SMS later, call a backend endpoint that calls Fast2SMS.
+    async function sendSMS(phone, name) {
+      console.warn("sendSMS called but disabled client-side to avoid CORS / API key exposure.");
+      // Implement server-side if needed.
+    }
+
+    // --- EmailJS will be used for client-side email sending (v4) ---
+    // We load @emailjs/browser below and initialize with your public key.
+    // The public key, service id and template id used are those you provided.
+    // Make sure your EmailJS template expects variables: to_email, student_name, start_date, end_date, days, message (if you use them).
+
+    // sendEmail uses the email saved in the leave application (record.email)
+    async function sendEmail(toEmail, name, startDate, endDate, days) {
+      if (!toEmail) {
+        console.warn("No student email provided — skipping email send.");
+        return;
+      }
+
+      const templateParams = {
+        to_email: toEmail,
+        student_name: name,
+        start_date: startDate || '',
+        end_date: endDate || '',
+        days: days || '',
+        message: `Hello ${name}, your leave application has been approved by Tutor and HOD.`
+      };
+
+      try {
+        const resp = await emailjs.send("service_drt59am", "template_4xe8il8", templateParams);
+        console.log("✅ EmailJS response:", resp);
+        // optional: show alert or write a firebase log entry for success
+        alert(`Email sent to ${toEmail}`);
+      } catch (err) {
+        console.error("❌ Email failed:", err);
+        alert(`Failed to send email to ${toEmail}. Check console for details.`);
+      }
+    }
+
+    // UI & App logic
+    const sidebar = document.getElementById('sidebar');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const loginArea = document.getElementById('loginArea');
+    const notifList = document.getElementById('notifList');
+    const chatInputArea = document.getElementById('chatInputArea');
+    const loginError = document.getElementById('loginError');
+    const tableWrap = document.getElementById('tableWrap');
+    let currentRole = null;
+
+    document.getElementById('loginForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const u = loginUsername.value.trim();
+      const p = loginPassword.value.trim();
+
+      if (u === 'student' && p === 'sigc@123') currentRole = 'student';
+      else if (u === 'MCA' && p === 'SIGC@123') currentRole = 'tutor';
+      else if (u === 'HOD' && p === 'SIGC@HOD') currentRole = 'hod';
+      else { loginError.style.display = 'block'; return; }
+
+      loginError.style.display = 'none';
+      loginArea.style.display = 'none';
+      sidebar.style.display = 'flex';
+      logoutBtn.classList.remove('hidden');
+      showPanel(homePanel);
+      adjustAccess();
+      loadMessages();
+    });
+
+    logoutBtn.onclick = () => location.reload();
+
+    function adjustAccess() {
+      if (currentRole === 'student') {
+        document.getElementById('navView').style.display = 'none';
+        chatInputArea.classList.add('hidden');
+      }
+      if (currentRole === 'tutor' || currentRole === 'hod') {
+        document.getElementById('navNew').style.display = 'none';
+        chatInputArea.classList.remove('hidden');
+      }
+    }
+
+    function showPanel(p) {
+      [homePanel, newPanel, viewPanel, notifPanel].forEach(x => x.classList.add('hidden'));
+      p.classList.remove('hidden');
+      if (p === viewPanel) loadAndRender();
+    }
+
+    navHome.onclick = () => showPanel(homePanel);
+    navNew.onclick = () => showPanel(newPanel);
+    navView.onclick = () => showPanel(viewPanel);
+    navNot.onclick = () => showPanel(notifPanel);
+
+    rollno.addEventListener('input', e => {
+      const v = e.target.value.trim().toUpperCase();
+      studentName.value = STUDENTS[v] || '';
+    });
+
+    async function readFileAsBase64(file) {
+      return new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    leaveForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (currentRole !== 'student') return alert("Only students can submit leave forms.");
+
+  // Parse start date and today's date, but compare only the date parts (midnight)
+  const start = new Date(startdate.value);
+  const today = new Date();
+
+  // Normalize both to local midnight (zero out time components) so we compare calendar days
+  const startMid = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const diffDays = Math.floor((todayMid - startMid) / MS_PER_DAY); // integer day difference
+
+  // Allow if today is before start (diffDays < 0) OR within 0..2 (start day or up to 2 days after)
+  if (diffDays > 2) {
+    alert("❌ You can only submit the leave form before the start date or within 2 days after the start date.");
+    return;
+  }
+
+  const payload = {
+    rollno: rollno.value.trim(),
+    name: studentName.value.trim(),
+    course: course.value,
+    section: section.value,
+    startdate: startdate.value,
+    enddate: enddate.value,
+    days: parseInt(days.value),
+    reason: reason.value,
+    email: email.value.trim(),
+    contact: contact.value,
+    certificateUrl: certificateUrl.value.trim(),
+    timestamp: Date.now(),
+    status: { tutor: 'Pending', hod: 'Pending' }
+  };
+
+  db.ref('leaveApplications').push(payload);
+  alert('Leave submitted successfully');
+  leaveForm.reset();
+});
+
+
+    async function loadAndRender() {
+      const snap = await db.ref('leaveApplications').once('value');
+      const data = snap.val() || {};
+      const items = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+      renderTable(items);
+    }
+
+    function renderTable(items) {
+      if (!items.length) return tableWrap.innerHTML = '<p>No records found.</p>';
+
+      // Calculate total leave taken per student
+      const totalLeaveByRoll = {};
+      items.forEach(it => {
+        const roll = (it.rollno || '').trim().toUpperCase();
+        totalLeaveByRoll[roll] = (totalLeaveByRoll[roll] || 0) + (it.days || 0);
+      });
+
+      const rows = items.map(it => {
+        let tutorCell = (it.status && it.status.tutor) || 'Pending';
+        let hodCell = (it.status && it.status.hod) || 'Pending';
+
+        if (currentRole === 'tutor')
+          tutorCell = renderButtons(it.id, 'tutor', it.status.tutor);
+        if (currentRole === 'hod')
+          hodCell = renderButtons(it.id, 'hod', it.status.hod);
+
+        const totalLeave = totalLeaveByRoll[(it.rollno || '').trim().toUpperCase()] || 0;
+        const rowColor = totalLeave >= 10 ? "style='background-color:#ffcccc;'" : "";
+
+        return `<tr ${rowColor}>
+          <td>${it.rollno || ''}</td>
+          <td>${it.name || ''}</td>
+          <td>${it.startdate || ''}</td>
+          <td>${it.enddate || ''}</td>
+          <td>${it.days || ''}</td>
+          <td>${it.reason || ''}</td>
+          <td>${it.certificateUrl ? `<a href="${it.certificateUrl}" target="_blank">View Certificate</a>` : '—'}</td>
+          <td>${totalLeave}</td>
+          <td>${tutorCell}</td>
+          <td>${hodCell}</td>
+        </tr>`;
+      }).join('');
+
+      tableWrap.innerHTML = `
+        <table>
+          <tr>
+            <th>Reg No</th>
+            <th>Name</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Days</th>
+            <th>Reason</th>
+            <th>Medical Certificate</th>
+            <th>Leave Taken</th>
+            <th>Tutor</th>
+            <th>HOD</th>
+          </tr>
+          ${rows}
+        </table>`;
+    }
+
+    const searchInput = document.getElementById('searchInput');
+    searchInput?.addEventListener('input', async () => {
+      const query = searchInput.value.toLowerCase();
+      const snap = await db.ref('leaveApplications').once('value');
+      const data = snap.val() || {};
+      const items = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+      const filtered = items.filter(it =>
+        (it.rollno || '').toLowerCase().includes(query) ||
+        (it.name || '').toLowerCase().includes(query)
+      );
+      renderTable(filtered);
+    });
+
+    function renderButtons(id, role, currentStatus) {
+      if (currentStatus === 'Approved')
+        return `<span class='status-approved'>Approved</span>`;
+      if (currentStatus === 'Rejected')
+        return `<span class='status-rejected'>Rejected</span>`;
+      return `
+        <button class='btn small' onclick="updateStatus('${id}','${role}','Approved', this)">Approve</button>
+        <button class='btn small danger' onclick="updateStatus('${id}','${role}','Rejected', this)">Reject</button>`;
+    }
+
+    // updateStatus: writes status (tutor/hod) and if both Approved -> send email (and SMS if available)
+    async function updateStatus(id, role, val, btn) {
+      await db.ref(`leaveApplications/${id}/status/${role}`).set(val);
+      const td = btn.parentElement;
+      td.innerHTML = val === 'Approved'
+        ? "<span class='status-approved'>Approved</span>"
+        : "<span class='status-rejected'>Rejected</span>";
+
+      // Fetch the full record
+      const snap = await db.ref(`leaveApplications/${id}`).once('value');
+      const record = snap.val();
+
+      // When both approved, send notification
+      if (record && record.status && record.status.tutor === 'Approved' && record.status.hod === 'Approved') {
+        const phone = record.contact;
+        const name = record.name || 'Student';
+        const studEmail = record.email || ''; // use the student's email from form
+
+        // Disabled SMS client-side to avoid CORS / API key leaks
+        // if (phone) sendSMS(phone, name);
+
+        // Send email using EmailJS (only if student provided an email)
+        if (studEmail) {
+          sendEmail(studEmail, name, record.startdate, record.enddate, record.days);
+        } else {
+          console.warn("Student email not found in record:", record);
+        }
+      }
+    }
+
+    function loadMessages() {
+      db.ref('messages').on('value', snap => {
+        const data = snap.val() || {};
+        notifList.innerHTML = Object.values(data)
+          .map(m => `<p><b>${m.sender}:</b> ${m.text}</p>`).join('') || 'No messages';
+      });
+    }
+
+    sendMsgBtn.onclick = () => {
+      if (currentRole === 'student') return;
+      const msg = chatMsg.value.trim();
+      if (!msg) return;
+      db.ref('messages').push({ sender: currentRole.toUpperCase(), text: msg, timestamp: Date.now() });
+      chatMsg.value = '';
+    };
+  </script>
+
+  <!-- Chatbot & UI extras (unchanged) -->
+  <style>
+    #chatbotBtn {
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      background-color: #1976d2;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    #chatbotBtn img { width: 35px; height: 35px; margin-top: 5px; }
+    #chatbotWindow {
+      position: fixed;
+      bottom: 95px;
+      right: 25px;
+      width: 320px;
+      height: 420px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      z-index: 9999;
+    }
+    #chatHeader { background-color: #1976d2; color: white; text-align: center; padding: 10px; font-weight: bold; }
+    #chatMessages { flex: 1; padding: 10px; overflow-y: auto; }
+    #chatMessages p { margin: 5px 0; padding: 6px 10px; border-radius: 10px; max-width: 80%; }
+    .bot { background-color: #e3f2fd; align-self: flex-start; }
+    .user { background-color: #bbdefb; align-self: flex-end; margin-left: auto; }
+    #chatInputBox { display: flex; padding: 8px; border-top: 1px solid #ddd; }
+    #chatInputBox input { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
+    #chatInputBox button { background: #1976d2; color: white; border: none; padding: 8px 12px; margin-left: 6px; border-radius: 8px; cursor: pointer; }
+  </style>
+
+  <button id="chatbotBtn"><img src="https://cdn-icons-png.flaticon.com/512/4712/4712109.png" alt="Chatbot"></button>
+  <div id="chatbotWindow">
+    <div id="chatHeader">SIGC Help Bot</div>
+    <div id="chatMessages"></div>
+    <div id="chatInputBox">
+      <input id="chatInput" placeholder="Type your question..." />
+      <button id="chatSend">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const botBtn = document.getElementById("chatbotBtn");
+    const botWindow = document.getElementById("chatbotWindow");
+    const chatMsgs = document.getElementById("chatMessages");
+    const chatSend = document.getElementById("chatSend");
+    const chatInput = document.getElementById("chatInput");
+
+    botBtn.onclick = () => {
+      botWindow.style.display = botWindow.style.display === "flex" ? "none" : "flex";
+      if (chatMsgs.innerHTML === "")
+        botMessage("Hi! I'm SIGC Help Bot 🤖<br>How can I help you today?<br><br>Type: <b>apply leave</b>, <b>view data</b>, or <b>leave limit</b>.");
+    };
+
+    chatSend.onclick = sendMessage;
+    chatInput.addEventListener("keypress", e => { if (e.key === "Enter") sendMessage(); });
+
+    function sendMessage() {
+      const msg = chatInput.value.trim().toLowerCase();
+      if (!msg) return;
+      addMessage(msg, "user");
+      chatInput.value = "";
+      setTimeout(() => reply(msg), 600);
+    }
+
+    function addMessage(text, cls) {
+      const p = document.createElement("p");
+      p.classList.add(cls);
+      p.innerHTML = text;
+      chatMsgs.appendChild(p);
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+
+    function botMessage(text) { addMessage(text, "bot"); }
+
+    function reply(msg) {
+      if (msg.includes("apply leave"))
+        botMessage("To apply leave: go to the <b>Apply Leave</b> page from sidebar → fill the form → upload file → click <b>Submit</b>.");
+      else if (msg.includes("view"))
+        botMessage("Tutors and HOD can view leave data in the <b>View Data</b> section. You can also open any uploaded <b>Medical Certificate</b> directly from there.");
+      else if (msg.includes("limit"))
+        botMessage("Students can take a maximum of <b>10 days leave</b>. For more, contact your tutor.");
+      else if (msg.includes("contact"))
+        botMessage("For further details, please contact your <b>Tutor</b> via Notifications.");
+      else
+        botMessage("Sorry, I didn’t understand. Try typing: <b>apply leave</b>, <b>view data</b>, <b>leave limit</b>.");
+    }
+  </script>
+
+  <!-- EmailJS v4 (browser SDK) -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.umd.min.js"></script>
+  <script>
+    // Initialize EmailJS v4 with your public key (the key you provided)
+    (function() {
+      // Use the public key you gave me:
+      emailjs.init("Xbg4gZ0lA-Q1BEmV9");
+      console.log("EmailJS initialized with provided public key.");
+    })();
+  </script>
+
+</body>
+</html>
